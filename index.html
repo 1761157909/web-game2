@@ -1,0 +1,53 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>俄罗斯方块</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>俄罗斯方块</h1>
+      <button id="pauseBtn" class="btn">暂停</button>
+    </header>
+
+    <section class="game-wrap">
+      <canvas id="board" width="300" height="600" aria-label="游戏画布"></canvas>
+
+      <aside class="panel">
+        <div class="card">
+          <h2>分数</h2>
+          <p id="score">0</p>
+        </div>
+        <div class="card">
+          <h2>等级</h2>
+          <p id="level">1</p>
+        </div>
+        <div class="card">
+          <h2>最高分</h2>
+          <p id="best">0</p>
+        </div>
+        <div class="card">
+          <h2>下一个</h2>
+          <canvas id="next" width="120" height="120" aria-label="下一个方块"></canvas>
+        </div>
+        <button id="restartBtn" class="btn full">重新开始</button>
+      </aside>
+    </section>
+
+    <section class="controls" aria-label="触控控制区">
+      <button data-act="left" class="ctl">←</button>
+      <button data-act="rotate" class="ctl">↻</button>
+      <button data-act="right" class="ctl">→</button>
+      <button data-act="soft" class="ctl">↓</button>
+      <button data-act="drop" class="ctl accent">落底</button>
+    </section>
+
+    <p id="status" class="status">点击开始游戏</p>
+  </main>
+
+  <script src="./game.js"></script>
+</body>
+</html>

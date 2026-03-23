@@ -1,0 +1,157 @@
+﻿:root {
+  --bg1: #0f172a;
+  --bg2: #172554;
+  --card: rgba(15, 23, 42, 0.75);
+  --line: rgba(148, 163, 184, 0.35);
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #22c55e;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: radial-gradient(1200px 600px at 20% -10%, #334155, transparent), linear-gradient(135deg, var(--bg1), var(--bg2));
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+
+.app {
+  width: min(960px, 100%);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+}
+
+.game-wrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+#board {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1 / 2;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.9);
+  justify-self: center;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.card h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 8px 0 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+#next {
+  width: 100%;
+  max-width: 100px;
+  aspect-ratio: 1;
+  display: block;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.6);
+}
+
+.controls {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.ctl,
+.btn {
+  border: 1px solid var(--line);
+  background: rgba(30, 41, 59, 0.9);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
+.ctl {
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-height: 48px;
+}
+
+.ctl:active,
+.btn:active {
+  transform: translateY(1px);
+}
+
+.accent {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.75);
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.status {
+  margin: 10px 4px 4px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (min-width: 860px) {
+  .game-wrap {
+    grid-template-columns: minmax(320px, 440px) 1fr;
+    align-items: start;
+  }
+
+  .panel {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
+  }
+
+  #board {
+    justify-self: start;
+  }
+}
