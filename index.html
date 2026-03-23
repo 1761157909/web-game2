@@ -8,44 +8,82 @@
 </head>
 <body>
   <main class="app">
-    <header class="topbar">
-      <h1>俄罗斯方块</h1>
-      <button id="pauseBtn" class="btn">暂停</button>
-    </header>
-
-    <section class="game-wrap">
-      <canvas id="board" width="300" height="600" aria-label="游戏画布"></canvas>
-
-      <aside class="panel">
-        <div class="card">
-          <h2>分数</h2>
-          <p id="score">0</p>
+    <section class="stage">
+      <aside class="hud left">
+        <div class="info-card">
+          <h2>目标分</h2>
+          <p class="target">1500</p>
         </div>
-        <div class="card">
-          <h2>等级</h2>
+        <div class="info-card">
+          <h2>关卡</h2>
           <p id="level">1</p>
         </div>
-        <div class="card">
+        <div class="info-card compact">
           <h2>最高分</h2>
           <p id="best">0</p>
         </div>
-        <div class="card">
+      </aside>
+
+      <section class="board-zone">
+        <canvas id="board" width="300" height="600" aria-label="游戏画布"></canvas>
+        <p id="status" class="status">游戏中</p>
+      </section>
+
+      <aside class="hud right">
+        <div class="mini-actions">
+          <button id="restartBtn" class="mini-btn" aria-label="重新开始">重来</button>
+          <button id="pauseBtn" class="mini-btn" aria-label="暂停">暂停</button>
+          <button id="handBtn" class="mini-btn mode-btn" aria-label="切换左右手模式">右手</button>
+          <button id="settingsBtn" class="mini-btn settings-btn" aria-label="打开设置">设置</button>
+        </div>
+
+        <div class="info-card">
+          <h2>得分</h2>
+          <p id="score">0</p>
+        </div>
+        <div class="info-card">
           <h2>下一个</h2>
           <canvas id="next" width="120" height="120" aria-label="下一个方块"></canvas>
         </div>
-        <button id="restartBtn" class="btn full">重新开始</button>
       </aside>
     </section>
 
     <section class="controls" aria-label="触控控制区">
-      <button data-act="left" class="ctl">←</button>
-      <button data-act="rotate" class="ctl">↻</button>
-      <button data-act="right" class="ctl">→</button>
-      <button data-act="soft" class="ctl">↓</button>
-      <button data-act="drop" class="ctl accent">落底</button>
+      <div class="control-row utility">
+        <button data-act="drop" class="game-btn wide">快速落底</button>
+      </div>
+      <div class="control-row direction">
+        <button data-act="left" class="game-btn circle move-left" aria-label="左移">◀</button>
+        <button data-act="right" class="game-btn circle move-right" aria-label="右移">▶</button>
+        <button data-act="rotate" class="game-btn circle act-rotate" aria-label="旋转">⟳</button>
+        <button data-act="soft" class="game-btn circle act-soft" aria-label="下移">▼</button>
+      </div>
     </section>
 
-    <p id="status" class="status">点击开始游戏</p>
+    <section id="settingsPanel" class="settings-panel hidden" aria-label="游戏设置">
+      <div class="settings-card">
+        <div class="settings-head">
+          <h3>游戏设置</h3>
+          <button id="closeSettingsBtn" class="close-btn" aria-label="关闭设置">×</button>
+        </div>
+        <label class="setting-item">
+          <span>震动反馈</span>
+          <input id="vibrationToggle" type="checkbox" checked />
+        </label>
+        <label class="setting-item">
+          <span>手势控制</span>
+          <input id="gestureToggle" type="checkbox" checked />
+        </label>
+        <label class="setting-item">
+          <span>速度档位</span>
+          <select id="speedSelect">
+            <option value="slow">慢速</option>
+            <option value="normal" selected>标准</option>
+            <option value="fast">快速</option>
+          </select>
+        </label>
+      </div>
+    </section>
   </main>
 
   <script src="./game.js"></script>

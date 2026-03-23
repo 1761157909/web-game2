@@ -42,7 +42,10 @@ const SHAPES = {
 
 const SCORE_BY_LINES = [0, 100, 300, 500, 800];
 const STORAGE_KEY = "tetris_best_score";
+const HANDED_KEY = "tetris_handed_mode";
+const SETTINGS_KEY = "tetris_settings_v1";
 
+const appEl = document.querySelector(".app");
 const boardCanvas = document.getElementById("board");
 const boardCtx = boardCanvas.getContext("2d");
 const nextCanvas = document.getElementById("next");
@@ -54,6 +57,13 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const pauseBtn = document.getElementById("pauseBtn");
 const restartBtn = document.getElementById("restartBtn");
+const handBtn = document.getElementById("handBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+const vibrationToggle = document.getElementById("vibrationToggle");
+const gestureToggle = document.getElementById("gestureToggle");
+const speedSelect = document.getElementById("speedSelect");
 const controlEls = document.querySelectorAll("[data-act]");
 
 const CELL_SIZE = boardCanvas.width / COLS;
@@ -70,8 +80,52 @@ let lastTime = 0;
 let isPaused = false;
 let isOver = false;
 let best = Number(localStorage.getItem(STORAGE_KEY) || 0);
+let handedMode = localStorage.getItem(HANDED_KEY) || "right";
+let settings = loadSettings();
+let holdTimer = null;
+let holdAct = null;
+let gesture = null;
 
 bestEl.textContent = String(best);
+
+function applyHandedMode(mode) {
+  handedMode = mode === "left" ? "left" : "right";
+  appEl.classList.toggle("handed-left", handedMode === "left");
+  handBtn.textContent = handedMode === "left" ? "左手" : "右手";
+  localStorage.setItem(HANDED_KEY, handedMode);
+}
+
+function loadSettings() {
+  const defaults = { vibration: true, gesture: true, speed: "normal" };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaults;
+    const data = JSON.parse(raw);
+    return {
+      vibration: typeof data.vibration === "boolean" ? data.vibration : defaults.vibration,
+      gesture: typeof data.gesture === "boolean" ? data.gesture : defaults.gesture,
+      speed: ["slow", "normal", "fast"].includes(data.speed) ? data.speed : defaults.speed,
+    };
+  } catch (e) {
+    return defaults;
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function syncSettingsUI() {
+  vibrationToggle.checked = settings.vibration;
+  gestureToggle.checked = settings.gesture;
+  speedSelect.value = settings.speed;
+}
+
+function buzz(pattern) {
+  if (settings.vibration && navigator.vibrate) {
+    navigator.vibrate(pattern);
+  }
+}
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
@@ -186,12 +240,15 @@ function clearLines() {
   if (lines > 0) {
     score += SCORE_BY_LINES[lines] * level;
     level = Math.floor(score / 1000) + 1;
+    buzz(lines >= 2 ? [30, 30, 30] : 35);
     if (score > best) {
       best = score;
       localStorage.setItem(STORAGE_KEY, String(best));
     }
     updateHUD();
   }
+
+  return lines;
 }
 
 function spawnPiece() {
@@ -202,6 +259,8 @@ function spawnPiece() {
 
   if (collision(current)) {
     isOver = true;
+    clearHold();
+    clearGesture();
     statusEl.textContent = "游戏结束，点击重新开始";
   }
 }
@@ -226,7 +285,10 @@ function softDrop() {
 
 function lockPiece() {
   merge(current);
-  clearLines();
+  const cleared = clearLines();
+  if (!isOver && cleared === 0) {
+    buzz(14);
+  }
   spawnPiece();
   updateHUD();
 }
@@ -245,6 +307,34 @@ function drawCell(ctx, x, y, type, size) {
   ctx.strokeRect(x * size + 1, y * size + 1, size - 2, size - 2);
 }
 
+function getGhostY(piece) {
+  let y = piece.y;
+  while (!collision(piece, 0, y - piece.y + 1)) {
+    y += 1;
+  }
+  return y;
+}
+
+function drawGhostPiece() {
+  if (!current || isOver) return;
+  const ghostY = getGhostY(current);
+  if (ghostY === current.y) return;
+
+  boardCtx.save();
+  boardCtx.globalAlpha = 0.28;
+  current.matrix.forEach((row, y) => {
+    row.forEach((v, x) => {
+      if (!v) return;
+      boardCtx.fillStyle = COLORS[current.type];
+      boardCtx.fillRect((current.x + x) * CELL_SIZE, (ghostY + y) * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      boardCtx.strokeStyle = "rgba(255,255,255,0.45)";
+      boardCtx.lineWidth = 1.5;
+      boardCtx.strokeRect((current.x + x) * CELL_SIZE + 1, (ghostY + y) * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    });
+  });
+  boardCtx.restore();
+}
+
 function drawBoard() {
   boardCtx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
 
@@ -256,6 +346,8 @@ function drawBoard() {
       }
     }
   }
+
+  drawGhostPiece();
 
   if (current) {
     current.matrix.forEach((row, y) => {
@@ -292,7 +384,9 @@ function tick(time = 0) {
 
   if (!isPaused && !isOver) {
     dropCounter += delta;
-    const speed = Math.max(80, 700 - (level - 1) * 55);
+    const baseSpeed = Math.max(80, 700 - (level - 1) * 55);
+    const speedScale = settings.speed === "slow" ? 1.2 : settings.speed === "fast" ? 0.82 : 1;
+    const speed = Math.max(55, Math.floor(baseSpeed * speedScale));
     if (dropCounter > speed) {
       softDrop();
       dropCounter = 0;
@@ -325,18 +419,50 @@ function action(act) {
       break;
     case "pause":
       if (!isOver) {
+        clearHold();
+        clearGesture();
         isPaused = !isPaused;
         pauseBtn.textContent = isPaused ? "继续" : "暂停";
         statusEl.textContent = isPaused ? "已暂停" : "游戏中";
       }
       break;
     case "restart":
+      clearHold();
+      clearGesture();
       pauseBtn.textContent = "暂停";
       resetGame();
       break;
     default:
       break;
   }
+}
+
+function clearHold() {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+  holdAct = null;
+}
+
+function clearGesture() {
+  gesture = null;
+}
+
+function startHold(act) {
+  const repeatable = act === "left" || act === "right" || act === "soft";
+  if (!repeatable) return;
+
+  clearHold();
+  holdAct = act;
+
+  const loop = () => {
+    if (holdAct !== act || isPaused || isOver) return;
+    action(act);
+    holdTimer = setTimeout(loop, 60);
+  };
+
+  holdTimer = setTimeout(loop, 150);
 }
 
 window.addEventListener("keydown", (e) => {
@@ -356,17 +482,106 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+boardCanvas.addEventListener("pointerdown", (e) => {
+  if (isPaused || isOver || !settings.gesture) return;
+  gesture = {
+    id: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    lastMoveX: e.clientX,
+    moved: false,
+  };
+});
+
+boardCanvas.addEventListener("pointermove", (e) => {
+  if (!settings.gesture || !gesture || gesture.id !== e.pointerId || isPaused || isOver) return;
+  const dx = e.clientX - gesture.startX;
+  const dy = e.clientY - gesture.startY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const step = 22;
+    const delta = e.clientX - gesture.lastMoveX;
+    if (Math.abs(delta) >= step) {
+      action(delta > 0 ? "right" : "left");
+      gesture.lastMoveX = e.clientX;
+      gesture.moved = true;
+    }
+    return;
+  }
+
+  if (dy > 28) {
+    action("soft");
+    gesture.startY = e.clientY;
+    gesture.moved = true;
+    return;
+  }
+
+  if (dy < -34 && !gesture.moved) {
+    action("rotate");
+    gesture.moved = true;
+  }
+});
+
+boardCanvas.addEventListener("pointerup", (e) => {
+  if (!settings.gesture || !gesture || gesture.id !== e.pointerId) return;
+  const dx = e.clientX - gesture.startX;
+  const dy = e.clientY - gesture.startY;
+  const movedLittle = Math.abs(dx) < 8 && Math.abs(dy) < 8;
+  if (movedLittle && !isPaused && !isOver) {
+    action("rotate");
+  }
+  clearGesture();
+});
+
+boardCanvas.addEventListener("pointercancel", clearGesture);
+boardCanvas.addEventListener("pointerleave", clearGesture);
+
 controlEls.forEach((el) => {
   const act = el.getAttribute("data-act");
-  el.addEventListener("touchstart", (e) => {
+
+  el.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     action(act);
-  }, { passive: false });
-  el.addEventListener("click", () => action(act));
+    startHold(act);
+  });
+
+  const stop = () => clearHold();
+  el.addEventListener("pointerup", stop);
+  el.addEventListener("pointercancel", stop);
+  el.addEventListener("pointerleave", stop);
 });
 
 pauseBtn.addEventListener("click", () => action("pause"));
 restartBtn.addEventListener("click", () => action("restart"));
+handBtn.addEventListener("click", () => {
+  applyHandedMode(handedMode === "left" ? "right" : "left");
+});
+settingsBtn.addEventListener("click", () => {
+  settingsPanel.classList.remove("hidden");
+});
+closeSettingsBtn.addEventListener("click", () => {
+  settingsPanel.classList.add("hidden");
+});
+settingsPanel.addEventListener("click", (e) => {
+  if (e.target === settingsPanel) {
+    settingsPanel.classList.add("hidden");
+  }
+});
+vibrationToggle.addEventListener("change", () => {
+  settings.vibration = vibrationToggle.checked;
+  saveSettings();
+});
+gestureToggle.addEventListener("change", () => {
+  settings.gesture = gestureToggle.checked;
+  clearGesture();
+  saveSettings();
+});
+speedSelect.addEventListener("change", () => {
+  settings.speed = speedSelect.value;
+  saveSettings();
+});
 
+applyHandedMode(handedMode);
+syncSettingsUI();
 resetGame();
 requestAnimationFrame(tick);
