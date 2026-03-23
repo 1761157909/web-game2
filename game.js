@@ -85,6 +85,7 @@ let settings = loadSettings();
 let holdTimer = null;
 let holdAct = null;
 let gesture = null;
+let elapsedMs = 0;
 
 bestEl.textContent = String(best);
 
@@ -161,6 +162,7 @@ function resetGame() {
   bag = [];
   score = 0;
   level = 1;
+  elapsedMs = 0;
   isPaused = false;
   isOver = false;
   current = nextPiece();
@@ -383,10 +385,12 @@ function tick(time = 0) {
   lastTime = time;
 
   if (!isPaused && !isOver) {
+    elapsedMs += delta;
     dropCounter += delta;
     const baseSpeed = Math.max(80, 700 - (level - 1) * 55);
     const speedScale = settings.speed === "slow" ? 1.2 : settings.speed === "fast" ? 0.82 : 1;
-    const speed = Math.max(55, Math.floor(baseSpeed * speedScale));
+    const timePressure = Math.floor(elapsedMs / 12000) * 18;
+    const speed = Math.max(48, Math.floor(baseSpeed * speedScale) - timePressure);
     if (dropCounter > speed) {
       softDrop();
       dropCounter = 0;

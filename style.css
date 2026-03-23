@@ -221,10 +221,6 @@ body {
     inset 0 -1px 3px rgba(28, 37, 65, 0.3);
 }
 
-.hidden {
-  display: none;
-}
-
 .settings-panel {
   position: fixed;
   inset: 0;
@@ -234,6 +230,10 @@ body {
   align-items: flex-end;
   justify-content: center;
   padding: 14px 12px calc(env(safe-area-inset-bottom) + 14px);
+}
+
+.settings-panel.hidden {
+  display: none;
 }
 
 .settings-card {
