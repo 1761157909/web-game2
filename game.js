@@ -52,8 +52,9 @@ const nextCanvas = document.getElementById("next");
 const nextCtx = nextCanvas.getContext("2d");
 
 const scoreEl = document.getElementById("score");
-const levelEl = document.getElementById("level");
+const timeEl = document.getElementById("time");
 const bestEl = document.getElementById("best");
+const eventTextEl = document.getElementById("eventText");
 const statusEl = document.getElementById("status");
 const pauseBtn = document.getElementById("pauseBtn");
 const restartBtn = document.getElementById("restartBtn");
@@ -74,7 +75,6 @@ let current = null;
 let next = null;
 let bag = [];
 let score = 0;
-let level = 1;
 let dropCounter = 0;
 let lastTime = 0;
 let isPaused = false;
@@ -86,6 +86,10 @@ let holdTimer = null;
 let holdAct = null;
 let gesture = null;
 let elapsedMs = 0;
+let shownElapsedSec = -1;
+let comboCount = 0;
+let backToBack = false;
+let particles = [];
 
 bestEl.textContent = String(best);
 
@@ -128,6 +132,13 @@ function buzz(pattern) {
   }
 }
 
+function showEventText(text, tone = "cool") {
+  eventTextEl.textContent = text;
+  eventTextEl.className = `event-text ${tone}`;
+  void eventTextEl.offsetWidth;
+  eventTextEl.classList.add("show");
+}
+
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
 }
@@ -161,8 +172,13 @@ function resetGame() {
   board = createBoard();
   bag = [];
   score = 0;
-  level = 1;
   elapsedMs = 0;
+  shownElapsedSec = -1;
+  dropCounter = 0;
+  lastTime = 0;
+  comboCount = 0;
+  backToBack = false;
+  particles = [];
   isPaused = false;
   isOver = false;
   current = nextPiece();
@@ -173,8 +189,22 @@ function resetGame() {
 
 function updateHUD() {
   scoreEl.textContent = String(score);
-  levelEl.textContent = String(level);
+  updateTimeHUD(true);
   bestEl.textContent = String(best);
+}
+
+function formatDuration(sec) {
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+  const ss = String(sec % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function updateTimeHUD(force = false) {
+  const sec = Math.floor(elapsedMs / 1000);
+  if (force || sec !== shownElapsedSec) {
+    shownElapsedSec = sec;
+    timeEl.textContent = formatDuration(sec);
+  }
 }
 
 function collision(piece, dx = 0, dy = 0, matrix = piece.matrix) {
@@ -230,8 +260,10 @@ function rotatePiece() {
 
 function clearLines() {
   let lines = 0;
+  const clearedRows = [];
   for (let y = ROWS - 1; y >= 0; y -= 1) {
     if (board[y].every((cell) => cell !== EMPTY)) {
+      clearedRows.push(y);
       board.splice(y, 1);
       board.unshift(Array(COLS).fill(EMPTY));
       lines += 1;
@@ -240,14 +272,34 @@ function clearLines() {
   }
 
   if (lines > 0) {
-    score += SCORE_BY_LINES[lines] * level;
-    level = Math.floor(score / 1000) + 1;
+    spawnClearParticles(clearedRows);
+    comboCount += 1;
+    const isTetris = lines === 4;
+    let bonus = 0;
+
+    if (comboCount >= 2) {
+      bonus += comboCount * 20;
+      showEventText(`连击 x${comboCount}`, "cool");
+    }
+
+    if (isTetris && backToBack) {
+      bonus += 180;
+      showEventText("Back-to-Back!", "fire");
+    } else if (isTetris) {
+      showEventText("TETRIS!", "fire");
+    }
+
+    score += SCORE_BY_LINES[lines];
+    score += bonus;
+    backToBack = isTetris;
     buzz(lines >= 2 ? [30, 30, 30] : 35);
     if (score > best) {
       best = score;
       localStorage.setItem(STORAGE_KEY, String(best));
     }
     updateHUD();
+  } else {
+    comboCount = 0;
   }
 
   return lines;
@@ -302,11 +354,50 @@ function move(dir) {
 }
 
 function drawCell(ctx, x, y, type, size) {
-  ctx.fillStyle = COLORS[type];
-  ctx.fillRect(x * size, y * size, size, size);
+  const px = x * size;
+  const py = y * size;
+  const base = COLORS[type];
+
+  const grad = ctx.createLinearGradient(px, py, px, py + size);
+  grad.addColorStop(0, mixColor(base, "#ffffff", 0.28));
+  grad.addColorStop(0.58, base);
+  grad.addColorStop(1, mixColor(base, "#0f172a", 0.35));
+  ctx.fillStyle = grad;
+  ctx.fillRect(px, py, size, size);
+
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.fillRect(px + size * 0.1, py + size * 0.1, size * 0.8, size * 0.2);
+
+  ctx.fillStyle = "rgba(8,12,30,0.22)";
+  ctx.fillRect(px + size * 0.12, py + size * 0.68, size * 0.76, size * 0.2);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1.25;
+  ctx.strokeRect(px + 0.8, py + 0.8, size - 1.6, size - 1.6);
+
   ctx.strokeStyle = "rgba(15,23,42,0.55)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x * size + 1, y * size + 1, size - 2, size - 2);
+  ctx.lineWidth = 1.6;
+  ctx.strokeRect(px + 1.8, py + 1.8, size - 3.6, size - 3.6);
+}
+
+function mixColor(hexA, hexB, t) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  const mix = (v1, v2) => Math.round(v1 + (v2 - v1) * t);
+  return `rgb(${mix(a.r, b.r)}, ${mix(a.g, b.g)}, ${mix(a.b, b.b)})`;
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  const safe = normalized.length === 3
+    ? normalized.split("").map((c) => c + c).join("")
+    : normalized;
+  const n = parseInt(safe, 16);
+  return {
+    r: (n >> 16) & 255,
+    g: (n >> 8) & 255,
+    b: n & 255,
+  };
 }
 
 function getGhostY(piece) {
@@ -337,6 +428,44 @@ function drawGhostPiece() {
   boardCtx.restore();
 }
 
+function spawnClearParticles(rows) {
+  rows.forEach((row) => {
+    const py = row * CELL_SIZE + CELL_SIZE * 0.5;
+    for (let i = 0; i < 22; i += 1) {
+      const px = Math.random() * boardCanvas.width;
+      particles.push({
+        x: px,
+        y: py,
+        vx: (Math.random() - 0.5) * 2.2,
+        vy: (Math.random() - 0.8) * 2.2,
+        life: 520 + Math.random() * 220,
+        maxLife: 740,
+        size: 1.6 + Math.random() * 2.6,
+        color: Math.random() > 0.5 ? "255,240,180" : "170,225,255",
+      });
+    }
+  });
+}
+
+function updateParticles(delta) {
+  particles = particles.filter((p) => {
+    p.life -= delta;
+    if (p.life <= 0) return false;
+    p.x += p.vx * (delta / 16.67);
+    p.y += p.vy * (delta / 16.67);
+    p.vy += 0.02 * (delta / 16.67);
+    return p.y < boardCanvas.height + 6 && p.x > -6 && p.x < boardCanvas.width + 6;
+  });
+}
+
+function drawParticles() {
+  particles.forEach((p) => {
+    const alpha = Math.max(0, p.life / p.maxLife);
+    boardCtx.fillStyle = `rgba(${p.color},${(alpha * 0.8).toFixed(3)})`;
+    boardCtx.fillRect(p.x, p.y, p.size, p.size);
+  });
+}
+
 function drawBoard() {
   boardCtx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
 
@@ -360,6 +489,8 @@ function drawBoard() {
       });
     });
   }
+
+  drawParticles();
 }
 
 function drawNext() {
@@ -386,16 +517,18 @@ function tick(time = 0) {
 
   if (!isPaused && !isOver) {
     elapsedMs += delta;
+    updateTimeHUD();
     dropCounter += delta;
-    const baseSpeed = Math.max(80, 700 - (level - 1) * 55);
-    const speedScale = settings.speed === "slow" ? 1.2 : settings.speed === "fast" ? 0.82 : 1;
-    const timePressure = Math.floor(elapsedMs / 12000) * 18;
-    const speed = Math.max(48, Math.floor(baseSpeed * speedScale) - timePressure);
+    const baseSpeed = settings.speed === "slow" ? 860 : settings.speed === "fast" ? 680 : 760;
+    const timePressure = Math.floor(elapsedMs / 30000) * 16;
+    const speed = Math.max(130, baseSpeed - timePressure);
     if (dropCounter > speed) {
       softDrop();
       dropCounter = 0;
     }
   }
+
+  updateParticles(delta);
 
   drawBoard();
   drawNext();

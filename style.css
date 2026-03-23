@@ -64,6 +64,7 @@ body {
   gap: 6px;
   align-items: center;
   justify-items: center;
+  position: relative;
 }
 
 #board {
@@ -87,6 +88,54 @@ body {
   font-size: 0.9rem;
   color: var(--subtext);
   text-align: center;
+}
+
+.event-text {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.92);
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(9, 14, 36, 0.55);
+  border: 1px solid rgba(233, 240, 255, 0.38);
+  color: #fff3b0;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.event-text.show {
+  animation: event-pop 780ms ease-out forwards;
+}
+
+.event-text.cool {
+  color: #9ce7ff;
+}
+
+.event-text.fire {
+  color: #ffd77b;
+}
+
+@keyframes event-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.9);
+  }
+  22% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px) scale(1.03);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px) scale(0.96);
+  }
 }
 
 .info-card {
